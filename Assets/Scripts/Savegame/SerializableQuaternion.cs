@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
  using System;
  using System.Collections;
- 
+
  /// <summary>
  /// Since unity doesn't flag the Quaternion as serializable, we
  /// need to create our own version. This one will automatically convert
@@ -14,22 +14,22 @@
      /// x component
      /// </summary>
      public float x;
-     
+
      /// <summary>
      /// y component
      /// </summary>
      public float y;
-     
+
      /// <summary>
      /// z component
      /// </summary>
      public float z;
-     
+
      /// <summary>
      /// w component
      /// </summary>
      public float w;
-     
+
      /// <summary>
      /// Constructor
      /// </summary>
@@ -44,7 +44,7 @@
          z = rZ;
          w = rW;
      }
-     
+
      /// <summary>
      /// Returns a string representation of the object
      /// </summary>
@@ -53,7 +53,7 @@
      {
          return String.Format("[{0}, {1}, {2}, {3}]", x, y, z, w);
      }
-     
+
      /// <summary>
      /// Automatic conversion from SerializableQuaternion to Quaternion
      /// </summary>
@@ -63,7 +63,7 @@
      {
          return new Quaternion(rValue.x, rValue.y, rValue.z, rValue.w);
      }
-     
+
      /// <summary>
      /// Automatic conversion from Quaternion to SerializableQuaternion
      /// </summary>

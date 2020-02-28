@@ -11,18 +11,18 @@ using UnityEngine.UIElements;
 
 public class SaveManager : MonoBehaviour
 {
+    public string savegameDirectoryPath = "Savegames";
+    public string savegameExtension = "sav";
     public Tilemap tilemap;
     public GameObject[] players;
 
+    private string fullSavegameDirectoryPath;
     private MapRevealer mapRevealer;
-
     private Vector3[] defaultCoveredTiles;
     private List<Vector3> defaultPlayerPositions = new List<Vector3>();
 
-    private void Awake()
-    {
-        mapRevealer = tilemap.gameObject.GetComponent<MapRevealer>();
-    }
+    private const string AUTOSAVE_NAME = "Autosave";
+
 
     public void SaveDefaults()
     {
@@ -33,29 +33,14 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    public void Load(string saveGameName)
+    public void LoadAutosave()
     {
-        /*
-        if (PlayerPrefs.HasKey("coveredTilePositions"))
-        {
-            mapRevealer.UncoverAll();
-            Vector3[] tileCellPositions = DeserializeVector3Array(PlayerPrefs.GetString("coveredTilePositions"));
-            foreach (var tileCellPosition in tileCellPositions)
-            {
-                mapRevealer.PlaceCoveredTile(Vector3Int.RoundToInt(tileCellPosition));
-            }
-        }
+        Load(AUTOSAVE_NAME);
+    }
 
-        foreach (GameObject player in players)
-        {
-            if (PlayerPrefs.HasKey(player.name))
-            {
-                player.transform.position = StringToVector3(PlayerPrefs.GetString(player.name));
-            }
-        }
-        */
-        
-        string saveGamePath = PathAndFileManager.SaveGamePathComplete(saveGameName);
+    public void Load(string savegameName)
+    {
+        string saveGamePath = GetFullSavegamePath(savegameName);
         if (File.Exists(saveGamePath))
         {
             try
@@ -95,28 +80,21 @@ public class SaveManager : MonoBehaviour
         {
             Debug.LogError("No Savegame found!");
         }
-        
+
+    }
+
+    public void SaveAutosave()
+    {
+        Save(AUTOSAVE_NAME);
     }
 
     [ContextMenu("Save")]
-    public void Save(string saveGameName)
+    public void Save(string savegameName)
     {
-        /*Vector3[] tileCellPositions = mapRevealer.GetCoveredTileCellPositions();
-        PlayerPrefs.SetString("coveredTilePositions", SerializeVector3Array(tileCellPositions));
-
-        foreach (GameObject player in players)
-        {
-            PlayerPrefs.SetString(player.name, player.transform.position.ToString());
-        }
-
-        PlayerPrefs.Save();
-        */
-
-        
-        
+        // Check if savegame directory exists
         try
         {
-            string saveGameFolder = PathAndFileManager.SaveGamePath();
+            string saveGameFolder = fullSavegameDirectoryPath;
             if (!Directory.Exists(saveGameFolder))
             {
                 Directory.CreateDirectory(saveGameFolder);
@@ -127,16 +105,16 @@ public class SaveManager : MonoBehaviour
             Debug.LogError(e);
             throw;
         }
-        
-        SaveFile saveFile = CreateSaveGameObj();
+
+        SaveFile saveFile = MarshalSavedata();
 
         try
         {
-            using (FileStream fileStream = File.Create(PathAndFileManager.SaveGamePathComplete(saveGameName)))
+            using (FileStream fileStream = File.Create(GetFullSavegamePath(savegameName)))
             {
                 BinaryFormatter binaryFormatter = new BinaryFormatter();
                 binaryFormatter.Serialize(fileStream,saveFile);
-                fileStream.Close();  
+                fileStream.Close();
             }
 
         }
@@ -149,16 +127,19 @@ public class SaveManager : MonoBehaviour
         Debug.Log("Game Saved");
     }
 
-    // Create a GameObject that is serialized
-    private SaveFile CreateSaveGameObj()
+    /// <summary>
+    /// Marshal savegame data to serializable format.
+    /// </summary>
+    /// <returns>Serializable SaveFile instance</returns>
+    private SaveFile MarshalSavedata()
     {
         SaveFile saveFile = new SaveFile();
-  
+
         // vector3 must be transformed into SerializableVector3
         Vector3[] coveredTileCellPositions = mapRevealer.GetCoveredTileCellPositions();
         int coveredTileCellPositionsLenght = coveredTileCellPositions.Length;
         saveFile.coveredTilePositions = new SerializableVector3[coveredTileCellPositionsLenght];
-        
+
         for (int i = 0; i < coveredTileCellPositionsLenght; i++)
         {
             saveFile.coveredTilePositions[i] = coveredTileCellPositions[i];
@@ -168,16 +149,14 @@ public class SaveManager : MonoBehaviour
         {
             saveFile.playerPositions.Add(players[i].transform.position);
         }
-        
+
         return saveFile;
     }
-    
-    
 
     [ContextMenu("CAUTION: Delete ALL saved data!")]
     public void DeleteSavedData()
     {
-        PlayerPrefs.DeleteAll();
+        // TODO: Remove savegame files
 
         mapRevealer.UncoverAll();
         foreach (var tileCellPosition in defaultCoveredTiles)
@@ -191,56 +170,30 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    public static Vector3 StringToVector3(string sVector)
+    private string GetFullSavegamePath(string savegameName)
     {
-        // Remove the parentheses
-        if (sVector.StartsWith("(") && sVector.EndsWith(")"))
-        {
-            sVector = sVector.Substring(1, sVector.Length - 2);
-        }
-
-        // split the items
-        string[] sArray = sVector.Split(',');
-
-        // store as a Vector3
-        Vector3 result = new Vector3(
-            float.Parse(sArray[0]),
-            float.Parse(sArray[1]),
-            float.Parse(sArray[2]));
-
-        return result;
+        return Path.Combine(fullSavegameDirectoryPath, $"{savegameName}.{savegameExtension}");
     }
 
+    private void Awake()
+    {
+        fullSavegameDirectoryPath = Path.Combine(Application.persistentDataPath, savegameDirectoryPath);
+
+        mapRevealer = tilemap.gameObject.GetComponent<MapRevealer>();
+        Debug.Log($"Savegame directory: {fullSavegameDirectoryPath}");
+
+        // Prune if savegame extension was specified with leading dot
+        if (savegameExtension.StartsWith("."))
+        {
+            savegameExtension = savegameExtension.Remove(0, 1);
+        }
+
+    }
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.D))
         {
             DeleteSavedData();
         }
-    }
-
-    public static string SerializeVector3Array(Vector3[] aVectors)
-    {
-        StringBuilder sb = new StringBuilder();
-        foreach (Vector3 v in aVectors)
-        {
-            sb.Append(v.x).Append(" ").Append(v.y).Append(" ").Append(v.z).Append("|");
-        }
-        if (sb.Length > 0) // remove last "|"
-            sb.Remove(sb.Length - 1, 1);
-        return sb.ToString();
-    }
-    public static Vector3[] DeserializeVector3Array(string aData)
-    {
-        string[] vectors = aData.Split('|');
-        Vector3[] result = new Vector3[vectors.Length];
-        for (int i = 0; i < vectors.Length; i++)
-        {
-            string[] values = vectors[i].Split(' ');
-            if (values.Length != 3)
-                throw new System.FormatException("component count mismatch. Expected 3 components but got " + values.Length);
-            result[i] = new Vector3(float.Parse(values[0]), float.Parse(values[1]), float.Parse(values[2]));
-        }
-        return result;
     }
 }

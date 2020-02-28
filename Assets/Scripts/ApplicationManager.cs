@@ -13,7 +13,7 @@ public class ApplicationManager : MonoBehaviour
         if (loadOnStart)
         {
             saveManager.SaveDefaults();
-            saveManager.Load(PathAndFileManager.DefaultSaveGameName);
+            saveManager.LoadAutosave();
         }
     }
     private void Update()
@@ -28,7 +28,7 @@ public class ApplicationManager : MonoBehaviour
     {
         if (saveOnQuit)
         {
-            saveManager.Save(PathAndFileManager.DefaultSaveGameName);
+            saveManager.SaveAutosave();
         }
     }
 }
